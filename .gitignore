@@ -1,4 +1,20 @@
+<<<<<<< HEAD
+.venv/
+.venv-local/
 venv/
 __pycache__/
+*.pyc
+.ipynb_checkpoints/
 .env
 node_modules/
+dist/
+=======
+node_modules/
+build/
+dist/
+coverage/
+.DS_Store
+*.log
+.env*
+!.env.example
+>>>>>>> 8129e8a243c1a7041232f8a50bebf2d296eec2a6

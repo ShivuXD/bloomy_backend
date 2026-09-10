@@ -97,6 +97,7 @@ class AdaptiveQuestion(BaseModel):
     instruction: str
     question: str
     choices: list[QuestionChoice]
+    peco_dialogue: str
 
 
 # ============================================================
@@ -192,7 +193,8 @@ def fallback_question(
                         "text": "Cat",
                         "is_correct": False
                     }
-                ]
+                ],
+                "peco_dialogue": "Listen carefully. Which word starts with B?"
             }
 
         elif difficulty_level <= 6:
@@ -212,7 +214,8 @@ def fallback_question(
                         "text": "Fish",
                         "is_correct": False
                     }
-                ]
+                ],
+                "peco_dialogue": "Which word begins with B? Take your time and choose the best answer."
             }
 
         else:
@@ -236,7 +239,8 @@ def fallback_question(
                         "text": "Sun",
                         "is_correct": False
                     }
-                ]
+                ],
+                "peco_dialogue": "Listen for the beginning sound in Butterfly. Which word starts with the same sound?"
             }
 
     # --------------------------------------------------------
@@ -255,7 +259,8 @@ def fallback_question(
                 "text": "No",
                 "is_correct": False
             }
-        ]
+        ],
+        "peco_dialogue": "Take your time. Which answer is correct?"
     }
 
 
@@ -298,6 +303,15 @@ def validate_question(
         return False
 
     if "choices" not in question_data:
+        return False
+
+    if "peco_dialogue" not in question_data:
+        return False
+
+    if not isinstance(question_data["peco_dialogue"], str):
+        return False
+
+    if not question_data["peco_dialogue"].strip():
         return False
 
     choices = question_data["choices"]
@@ -429,9 +443,13 @@ Required JSON format:
       "text": "Choice 2",
       "is_correct": false
     }}
-  ]
+  ],
+  "peco_dialogue": "A short natural sentence Peco can say aloud that directly presents the same question."
 }}
 
+The "peco_dialogue" MUST be based directly on the generated instruction and question.
+It must not introduce a different question or different facts.
+Keep it natural and child-friendly.
 Make the question genuinely appropriate for difficulty {difficulty_level}/10.
 """
 

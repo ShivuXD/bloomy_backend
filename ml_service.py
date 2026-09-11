@@ -1,10 +1,14 @@
 import os
 import json
+import random
 from pathlib import Path
+
 import joblib
 import pandas as pd
+
 from google import genai
 from dotenv import load_dotenv
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
@@ -17,10 +21,15 @@ from pydantic import BaseModel, Field
 load_dotenv()
 
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-MODEL_NAME = os.getenv("GEMINI_MODEL", "gemini-3.6-flash")
+MODEL_NAME = os.getenv(
+    "GEMINI_MODEL",
+    "gemini-3.6-flash"
+)
 
 if GEMINI_API_KEY:
-    client = genai.Client(api_key=GEMINI_API_KEY)
+    client = genai.Client(
+        api_key=GEMINI_API_KEY
+    )
 else:
     client = None
 
@@ -31,13 +40,15 @@ else:
 
 BASE_DIR = Path(__file__).resolve().parent
 
-skill_model = joblib.load(BASE_DIR / "skill_classifier.pkl")
+skill_model = joblib.load(
+    BASE_DIR / "skill_classifier.pkl"
+)
 
 FEATURE_NAMES = [
     "accuracy",
     "reaction_time",
     "hesitation",
-    "retries"
+    "retries",
 ]
 
 
@@ -45,7 +56,9 @@ FEATURE_NAMES = [
 # FASTAPI APP
 # ============================================================
 
-app = FastAPI(title="Bloomy AI Service")
+app = FastAPI(
+    title="Bloomy AI Service"
+)
 
 
 app.add_middleware(
@@ -61,7 +74,8 @@ app.add_middleware(
         "http://127.0.0.1:4173",
         "https://bloomly-frontend.vercel.app",
     ],
-    allow_origin_regex=r"https?://(localhost|127\.0\.0\.1):\d+$",
+    allow_origin_regex=
+        r"https?://(localhost|127\.0\.0\.1):\d+$",
     allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -73,10 +87,27 @@ app.add_middleware(
 # ============================================================
 
 class GameStats(BaseModel):
-    accuracy: float = Field(..., ge=0, le=100)
-    reaction_time: float = Field(..., ge=0)
-    hesitation: int = Field(..., ge=0)
-    retries: int = Field(..., ge=0)
+    accuracy: float = Field(
+        ...,
+        ge=0,
+        le=100
+    )
+
+    reaction_time: float = Field(
+        ...,
+        ge=0
+    )
+
+    hesitation: int = Field(
+        ...,
+        ge=0
+    )
+
+    retries: int = Field(
+        ...,
+        ge=0
+    )
+
     child_name: str = "Friend"
 
 
@@ -86,10 +117,22 @@ class QuestionChoice(BaseModel):
 
 
 class AdaptiveQuestionRequest(BaseModel):
-    difficulty_level: int = Field(..., ge=1, le=10)
+    difficulty_level: int = Field(
+        ...,
+        ge=1,
+        le=10
+    )
+
     skill_level: str = "Intermediate"
-    age: int = Field(default=8, ge=4, le=18)
+
+    age: int = Field(
+        default=8,
+        ge=4,
+        le=18
+    )
+
     question_type: str = "phonics"
+
     child_name: str = "Friend"
 
 
@@ -100,8 +143,32 @@ class AdaptiveQuestion(BaseModel):
     peco_dialogue: str
 
 
+class WordBuilderRequest(BaseModel):
+    difficulty_level: int = Field(
+        ...,
+        ge=1,
+        le=10
+    )
+
+    skill_level: str = "Intermediate"
+
+    age: int = Field(
+        default=8,
+        ge=4,
+        le=18
+    )
+
+    child_name: str = "Friend"
+
+
+class WordBuilderResponse(BaseModel):
+    word: str
+    clue: str
+    peco_dialogue: str
+
+
 # ============================================================
-# PECO FALLBACK
+# PECO FALLBACK MESSAGE
 # ============================================================
 
 def fallback_message(
@@ -110,12 +177,21 @@ def fallback_message(
 ) -> str:
 
     if skill_level == "Beginner":
-        return f"It's okay, {child_name}. Let's try together!"
+        return (
+            f"It's okay, {child_name}. "
+            "Let's try together!"
+        )
 
     if skill_level == "Advanced":
-        return f"Wow, {child_name}! You did amazing!"
+        return (
+            f"Wow, {child_name}! "
+            "You did amazing!"
+        )
 
-    return f"Great effort, {child_name}! Keep going!"
+    return (
+        f"Great effort, {child_name}! "
+        "Keep going!"
+    )
 
 
 # ============================================================
@@ -130,18 +206,23 @@ def generate_peco_message(
 ) -> str:
 
     if client is None:
-        return fallback_message(skill_level, child_name)
+        return fallback_message(
+            skill_level,
+            child_name
+        )
 
     prompt = f"""
-You are Peco, a warm and supportive learning companion for children.
+You are Peco, a warm and supportive
+learning companion for children.
 
 Give exactly one short encouraging response.
 
 Rules:
 - Maximum 2 short sentences.
 - Use simple child-friendly language.
-- Never mention diagnosis, disorder, ADHD, ASD, dyslexia, medical conditions,
-  intelligence, or mental health.
+- Never mention diagnosis, disorder, ADHD, ASD,
+  dyslexia, medical conditions, intelligence,
+  or mental health.
 - Do not shame the child.
 - Do not mention percentages or technical data.
 - Encourage trying again or celebrating success.
@@ -153,16 +234,30 @@ Retries: {retries}
 """
 
     try:
-        result = client.models.generate_content(model=MODEL_NAME, contents=prompt)
-        text = result.text.strip()
+        result = client.models.generate_content(
+            model=MODEL_NAME,
+            contents=prompt
+        )
+
+        text = (
+            result.text.strip()
+            if result.text
+            else ""
+        )
 
         if text:
             return text
 
     except Exception as error:
-        print("Gemini Peco error:", error)
+        print(
+            "Gemini Peco error:",
+            error
+        )
 
-    return fallback_message(skill_level, child_name)
+    return fallback_message(
+        skill_level,
+        child_name
+    )
 
 
 # ============================================================
@@ -175,15 +270,85 @@ def fallback_question(
 ) -> dict:
 
     # --------------------------------------------------------
+    # WORD BUILDER FALLBACK
+    # --------------------------------------------------------
+    #
+    # This MUST come before the generic fallback.
+    #
+    # WordBuilder can never receive "Yes"/"No".
+    #
+
+    if question_type == "word_builder":
+
+        fallback_words = [
+            {
+                "word": "CAT",
+                "clue":
+                    "A furry pet that purrs softly.",
+                "peco_dialogue":
+                    "Let's spell CAT. It is a furry pet that purrs softly."
+            },
+            {
+                "word": "DOG",
+                "clue":
+                    "A friendly pet that barks and wags its tail.",
+                "peco_dialogue":
+                    "Let's spell DOG. It is a friendly pet that barks and wags its tail."
+            },
+            {
+                "word": "FISH",
+                "clue":
+                    "An animal that swims in water.",
+                "peco_dialogue":
+                    "Let's spell FISH. It is an animal that swims in water."
+            },
+            {
+                "word": "TREE",
+                "clue":
+                    "A tall plant with branches and leaves.",
+                "peco_dialogue":
+                    "Let's spell TREE. It is a tall plant with branches and leaves."
+            },
+            {
+                "word": "BOOK",
+                "clue":
+                    "You can read stories in it.",
+                "peco_dialogue":
+                    "Let's spell BOOK. You can read stories in it."
+            },
+            {
+                "word": "STAR",
+                "clue":
+                    "It shines in the night sky.",
+                "peco_dialogue":
+                    "Let's spell STAR. It shines in the night sky."
+            },
+            {
+                "word": "FLOWER",
+                "clue":
+                    "A colorful part of a plant.",
+                "peco_dialogue":
+                    "Let's spell FLOWER. It is a colorful part of a plant."
+            },
+        ]
+
+        return random.choice(
+            fallback_words
+        )
+
+    # --------------------------------------------------------
     # PHONICS FALLBACK
     # --------------------------------------------------------
 
     if question_type == "phonics":
 
         if difficulty_level <= 3:
+
             return {
-                "instruction": "Listen carefully and choose the right answer.",
-                "question": "Which word starts with B?",
+                "instruction":
+                    "Listen carefully and choose the right answer.",
+                "question":
+                    "Which word starts with B?",
                 "choices": [
                     {
                         "text": "Bear",
@@ -194,13 +359,17 @@ def fallback_question(
                         "is_correct": False
                     }
                 ],
-                "peco_dialogue": "Listen carefully. Which word starts with B?"
+                "peco_dialogue":
+                    "Listen carefully. Which word starts with B?"
             }
 
         elif difficulty_level <= 6:
+
             return {
-                "instruction": "Choose the word that starts with the sound B.",
-                "question": "Which word begins with B?",
+                "instruction":
+                    "Choose the word that starts with the sound B.",
+                "question":
+                    "Which word begins with B?",
                 "choices": [
                     {
                         "text": "Ball",
@@ -215,13 +384,17 @@ def fallback_question(
                         "is_correct": False
                     }
                 ],
-                "peco_dialogue": "Which word begins with B? Take your time and choose the best answer."
+                "peco_dialogue":
+                    "Which word begins with B? Take your time and choose the best answer."
             }
 
         else:
+
             return {
-                "instruction": "Choose the word that begins with the same sound.",
-                "question": "Which word starts with the same sound as Butterfly?",
+                "instruction":
+                    "Choose the word that begins with the same sound.",
+                "question":
+                    "Which word starts with the same sound as Butterfly?",
                 "choices": [
                     {
                         "text": "Banana",
@@ -240,7 +413,8 @@ def fallback_question(
                         "is_correct": False
                     }
                 ],
-                "peco_dialogue": "Listen for the beginning sound in Butterfly. Which word starts with the same sound?"
+                "peco_dialogue":
+                    "Listen for the beginning sound in Butterfly. Which word starts with the same sound?"
             }
 
     # --------------------------------------------------------
@@ -248,8 +422,10 @@ def fallback_question(
     # --------------------------------------------------------
 
     return {
-        "instruction": "Choose the best answer.",
-        "question": "Which answer is correct?",
+        "instruction":
+            "Choose the best answer.",
+        "question":
+            "Which answer is correct?",
         "choices": [
             {
                 "text": "Yes",
@@ -260,7 +436,8 @@ def fallback_question(
                 "is_correct": False
             }
         ],
-        "peco_dialogue": "Take your time. Which answer is correct?"
+        "peco_dialogue":
+            "Take your time. Which answer is correct?"
     }
 
 
@@ -268,7 +445,9 @@ def fallback_question(
 # CLEAN GEMINI JSON
 # ============================================================
 
-def clean_json_response(text: str) -> str:
+def clean_json_response(
+    text: str
+) -> str:
 
     text = text.strip()
 
@@ -285,7 +464,7 @@ def clean_json_response(text: str) -> str:
 
 
 # ============================================================
-# VALIDATE QUESTION
+# VALIDATE GENERIC QUESTION
 # ============================================================
 
 def validate_question(
@@ -293,7 +472,10 @@ def validate_question(
     difficulty_level: int
 ) -> bool:
 
-    if not isinstance(question_data, dict):
+    if not isinstance(
+        question_data,
+        dict
+    ):
         return False
 
     if "instruction" not in question_data:
@@ -308,22 +490,34 @@ def validate_question(
     if "peco_dialogue" not in question_data:
         return False
 
-    if not isinstance(question_data["peco_dialogue"], str):
+    if not isinstance(
+        question_data["peco_dialogue"],
+        str
+    ):
         return False
 
-    if not question_data["peco_dialogue"].strip():
+    if not question_data[
+        "peco_dialogue"
+    ].strip():
         return False
 
-    choices = question_data["choices"]
+    choices = question_data[
+        "choices"
+    ]
 
-    if not isinstance(choices, list):
+    if not isinstance(
+        choices,
+        list
+    ):
         return False
 
-    # Difficulty controls number of choices
+    # Difficulty controls choice count.
     if difficulty_level <= 3:
         expected_choices = 2
+
     elif difficulty_level <= 6:
         expected_choices = 3
+
     else:
         expected_choices = 4
 
@@ -334,7 +528,10 @@ def validate_question(
 
     for choice in choices:
 
-        if not isinstance(choice, dict):
+        if not isinstance(
+            choice,
+            dict
+        ):
             return False
 
         if "text" not in choice:
@@ -343,16 +540,22 @@ def validate_question(
         if "is_correct" not in choice:
             return False
 
-        if not isinstance(choice["text"], str):
+        if not isinstance(
+            choice["text"],
+            str
+        ):
             return False
 
-        if not isinstance(choice["is_correct"], bool):
+        if not isinstance(
+            choice["is_correct"],
+            bool
+        ):
             return False
 
         if choice["is_correct"]:
             correct_count += 1
 
-    # Exactly ONE correct answer
+    # Exactly ONE correct answer.
     if correct_count != 1:
         return False
 
@@ -360,7 +563,327 @@ def validate_question(
 
 
 # ============================================================
-# GENERATE ADAPTIVE QUESTION
+# VALIDATE WORD BUILDER QUESTION
+# ============================================================
+
+def validate_word_builder(
+    data: dict
+) -> bool:
+
+    if not isinstance(
+        data,
+        dict
+    ):
+        return False
+
+    required_fields = [
+        "word",
+        "clue",
+        "peco_dialogue",
+    ]
+
+    for field in required_fields:
+
+        if field not in data:
+            return False
+
+        if not isinstance(
+            data[field],
+            str
+        ):
+            return False
+
+        if not data[field].strip():
+            return False
+
+    word = data["word"].strip().upper()
+
+    # Single English word.
+    if not word.isalpha():
+        return False
+
+    # Child-friendly word length.
+    if not 2 <= len(word) <= 10:
+        return False
+
+    # Explicitly reject generic outputs.
+    forbidden_words = {
+        "YES",
+        "NO",
+        "TRUE",
+        "FALSE",
+        "ANSWER",
+        "OPTION",
+        "CORRECT",
+        "WRONG",
+    }
+
+    if word in forbidden_words:
+        return False
+
+    # Reject whitespace/hyphen/apostrophe forms.
+    if any(
+        char in word
+        for char in [" ", "-", "'"]
+    ):
+        return False
+
+    return True
+
+
+# ============================================================
+# GENERATE WORD BUILDER QUESTION
+# ============================================================
+
+def generate_word_builder_question(
+    difficulty_level: int,
+    skill_level: str,
+    age: int,
+    child_name: str
+) -> dict:
+
+    # --------------------------------------------------------
+    # SAFE FALLBACK POOL
+    # --------------------------------------------------------
+
+    fallback_words = [
+        {
+            "word": "CAT",
+            "clue":
+                "A furry pet that purrs softly.",
+            "peco_dialogue":
+                "Let's spell CAT. It is a furry pet that purrs softly."
+        },
+        {
+            "word": "DOG",
+            "clue":
+                "A friendly pet that barks and wags its tail.",
+            "peco_dialogue":
+                "Let's spell DOG. It is a friendly pet that barks and wags its tail."
+        },
+        {
+            "word": "FISH",
+            "clue":
+                "An animal that swims in water.",
+            "peco_dialogue":
+                "Let's spell FISH. It is an animal that swims in water."
+        },
+        {
+            "word": "TREE",
+            "clue":
+                "A tall plant with branches and leaves.",
+            "peco_dialogue":
+                "Let's spell TREE. It has branches and leaves."
+        },
+        {
+            "word": "BOOK",
+            "clue":
+                "You can read stories in it.",
+            "peco_dialogue":
+                "Let's spell BOOK. You can read stories in it."
+        },
+        {
+            "word": "STAR",
+            "clue":
+                "It shines in the night sky.",
+            "peco_dialogue":
+                "Let's spell STAR. It shines in the night sky."
+        },
+        {
+            "word": "FLOWER",
+            "clue":
+                "A colorful part of a plant.",
+            "peco_dialogue":
+                "Let's spell FLOWER. It is a colorful part of a plant."
+        },
+    ]
+
+    def fallback():
+        return random.choice(
+            fallback_words
+        )
+
+    # --------------------------------------------------------
+    # GEMINI UNAVAILABLE
+    # --------------------------------------------------------
+
+    if client is None:
+        print(
+            "Gemini unavailable -> using WordBuilder fallback"
+        )
+
+        return fallback()
+
+    # --------------------------------------------------------
+    # DIFFICULTY GUIDANCE
+    # --------------------------------------------------------
+
+    if difficulty_level <= 3:
+
+        difficulty_guidance = """
+Use a very common 2–4 letter word.
+Examples: CAT, DOG, SUN, FISH.
+"""
+
+    elif difficulty_level <= 6:
+
+        difficulty_guidance = """
+Use a common 4–6 letter word.
+Examples: TIGER, FLOWER, PLANET, GARDEN.
+"""
+
+    else:
+
+        difficulty_guidance = """
+Use a common 5–8 letter word.
+The word can be slightly more challenging,
+but must still be appropriate for a child.
+"""
+
+    # --------------------------------------------------------
+    # GEMINI PROMPT
+    # --------------------------------------------------------
+
+    prompt = f"""
+You are Bloomy's WordBuilder question generator.
+
+Generate exactly ONE fresh spelling exercise for a child.
+
+Learner:
+- Age: {age}
+- Skill level: {skill_level}
+- Difficulty: {difficulty_level}/10
+- Child name: {child_name}
+
+{difficulty_guidance}
+
+IMPORTANT WORD RULES:
+1. The target must be exactly ONE common English word.
+2. Use letters A-Z only.
+3. No spaces.
+4. No hyphens.
+5. No apostrophes.
+6. No numbers.
+7. No punctuation.
+8. The word must be 2 to 10 letters long.
+9. NEVER use YES.
+10. NEVER use NO.
+11. NEVER use TRUE.
+12. NEVER use FALSE.
+13. NEVER use ANSWER.
+14. NEVER use OPTION.
+15. NEVER use CORRECT.
+16. NEVER use WRONG.
+17. Do not use obscure technical vocabulary.
+18. The word must be suitable for a child around the given age.
+
+CLUE RULES:
+- Give a short, clear clue describing the word.
+- The clue must actually describe the target word.
+- Keep vocabulary simple.
+
+PECO RULES:
+- Give one short natural sentence Peco can say.
+- Peco dialogue must clearly match the same word/clue.
+- Do not mention diagnosis, ADHD, ASD, dyslexia,
+  intelligence, mental health, or medical conditions.
+- Do not use emojis.
+
+RETURN ONLY VALID JSON.
+
+Required format:
+
+{{
+  "word": "FISH",
+  "clue": "An animal that swims in water.",
+  "peco_dialogue": "Let's spell FISH. It is an animal that swims in water."
+}}
+"""
+
+    # --------------------------------------------------------
+    # CALL GEMINI
+    # --------------------------------------------------------
+
+    try:
+
+        response = client.models.generate_content(
+            model=MODEL_NAME,
+            contents=prompt
+        )
+
+        raw_text = (
+            response.text.strip()
+            if response.text
+            else ""
+        )
+
+        if not raw_text:
+            raise ValueError(
+                "Gemini returned empty response"
+            )
+
+        cleaned_text = (
+            clean_json_response(
+                raw_text
+            )
+        )
+
+        data = json.loads(
+            cleaned_text
+        )
+
+        if not validate_word_builder(
+            data
+        ):
+            raise ValueError(
+                "Gemini returned invalid WordBuilder question"
+            )
+
+        word = (
+            data["word"]
+            .strip()
+            .upper()
+        )
+
+        clue = (
+            data["clue"]
+            .strip()
+        )
+
+        peco_dialogue = (
+            data["peco_dialogue"]
+            .strip()
+        )
+
+        result = {
+            "word": word,
+            "clue": clue,
+            "peco_dialogue":
+                peco_dialogue,
+        }
+
+        print(
+            f"Gemini WordBuilder generated: {word}"
+        )
+
+        return result
+
+    except Exception as error:
+
+        print(
+            "Gemini WordBuilder error:",
+            error
+        )
+
+        print(
+            "Using safe WordBuilder fallback."
+        )
+
+        return fallback()
+
+
+# ============================================================
+# GENERATE GENERIC ADAPTIVE QUESTION
 # ============================================================
 
 def generate_adaptive_question(
@@ -372,12 +895,14 @@ def generate_adaptive_question(
 ) -> dict:
 
     # --------------------------------------------------------
-    # FALLBACK IF GEMINI IS NOT AVAILABLE
+    # GEMINI UNAVAILABLE
     # --------------------------------------------------------
 
     if client is None:
 
-        print("Gemini unavailable -> using fallback question")
+        print(
+            "Gemini unavailable -> using fallback question"
+        )
 
         return fallback_question(
             difficulty_level,
@@ -385,7 +910,7 @@ def generate_adaptive_question(
         )
 
     # --------------------------------------------------------
-    # CHOICE COUNT BASED ON DIFFICULTY
+    # CHOICE COUNT
     # --------------------------------------------------------
 
     if difficulty_level <= 3:
@@ -398,7 +923,7 @@ def generate_adaptive_question(
         choice_count = 4
 
     # --------------------------------------------------------
-    # GEMINI PROMPT
+    # GENERIC GEMINI PROMPT
     # --------------------------------------------------------
 
     prompt = f"""
@@ -422,8 +947,9 @@ Rules:
 4. Exactly ONE choice must be correct.
 5. The other choices must be plausible but wrong.
 6. Keep wording short and simple.
-7. Do not mention diagnosis, disorders, ADHD, ASD, dyslexia,
-   intelligence, mental health, or medical conditions.
+7. Do not mention diagnosis, disorders, ADHD, ASD,
+   dyslexia, intelligence, mental health,
+   or medical conditions.
 8. Do not make the question dependent on cultural knowledge.
 9. Do not use emojis.
 10. Return ONLY valid JSON.
@@ -447,24 +973,40 @@ Required JSON format:
   "peco_dialogue": "A short natural sentence Peco can say aloud that directly presents the same question."
 }}
 
-The "peco_dialogue" MUST be based directly on the generated instruction and question.
-It must not introduce a different question or different facts.
+The "peco_dialogue" MUST be based directly on
+the generated instruction and question.
+
+It must not introduce a different question
+or different facts.
+
 Keep it natural and child-friendly.
-Make the question genuinely appropriate for difficulty {difficulty_level}/10.
+
+Make the question genuinely appropriate
+for difficulty {difficulty_level}/10.
 """
 
     try:
 
-        response = client.models.generate_content(model=MODEL_NAME,contents=prompt)
-        raw_text = response.text.strip()
+        response = client.models.generate_content(
+            model=MODEL_NAME,
+            contents=prompt
+        )
 
-        cleaned_text = clean_json_response(raw_text)
+        raw_text = (
+            response.text.strip()
+            if response.text
+            else ""
+        )
 
-        question_data = json.loads(cleaned_text)
+        cleaned_text = (
+            clean_json_response(
+                raw_text
+            )
+        )
 
-        # ----------------------------------------------------
-        # VALIDATION
-        # ----------------------------------------------------
+        question_data = json.loads(
+            cleaned_text
+        )
 
         if validate_question(
             question_data,
@@ -473,11 +1015,16 @@ Make the question genuinely appropriate for difficulty {difficulty_level}/10.
 
             return question_data
 
-        print("Gemini returned invalid question -> fallback")
+        print(
+            "Gemini returned invalid question -> fallback"
+        )
 
     except Exception as error:
 
-        print("Gemini question generation error:", error)
+        print(
+            "Gemini question generation error:",
+            error
+        )
 
     # --------------------------------------------------------
     # SAFE FALLBACK
@@ -498,7 +1045,10 @@ def health():
 
     return {
         "status": "ok",
-        "gemini_configured": client is not None
+        "gemini_configured":
+            client is not None,
+        "model":
+            MODEL_NAME,
     }
 
 
@@ -514,13 +1064,13 @@ def predict(stats: GameStats):
             stats.accuracy,
             stats.reaction_time,
             stats.hesitation,
-            stats.retries
+            stats.retries,
         ]],
         columns=FEATURE_NAMES
     )
 
     # --------------------------------------------------------
-    # 1. ML predicts current skill
+    # 1. ML PREDICTS CURRENT SKILL
     # --------------------------------------------------------
 
     skill_level = str(
@@ -528,7 +1078,7 @@ def predict(stats: GameStats):
     )
 
     # --------------------------------------------------------
-    # 2. Convert skill -> adaptive difficulty
+    # 2. SKILL -> ADAPTIVE DIFFICULTY
     # --------------------------------------------------------
 
     if skill_level == "Beginner":
@@ -544,7 +1094,7 @@ def predict(stats: GameStats):
         difficulty_level = 5
 
     # --------------------------------------------------------
-    # 3. Peco response
+    # 3. PECO RESPONSE
     # --------------------------------------------------------
 
     peco_message = generate_peco_message(
@@ -555,10 +1105,13 @@ def predict(stats: GameStats):
     )
 
     # --------------------------------------------------------
-    # 4. Peco state
+    # 4. PECO STATE
     # --------------------------------------------------------
 
-    if skill_level == "Beginner" or stats.accuracy < 45:
+    if (
+        skill_level == "Beginner"
+        or stats.accuracy < 45
+    ):
 
         peco_state = "comforting"
 
@@ -571,19 +1124,26 @@ def predict(stats: GameStats):
         peco_state = "encouraging"
 
     # --------------------------------------------------------
-    # 5. RETURN AUTHORITATIVE ADAPTIVE RESULT
+    # 5. RETURN AUTHORITATIVE RESULT
     # --------------------------------------------------------
 
     return {
-        "skill_level": skill_level,
-        "difficulty_level": difficulty_level,
-        "peco_state": peco_state,
-        "peco_message": peco_message
+        "skill_level":
+            skill_level,
+
+        "difficulty_level":
+            difficulty_level,
+
+        "peco_state":
+            peco_state,
+
+        "peco_message":
+            peco_message,
     }
 
 
 # ============================================================
-# GEMINI ADAPTIVE QUESTION ENDPOINT
+# GENERIC ADAPTIVE QUESTION ENDPOINT
 # ============================================================
 
 @app.post("/generate-question")
@@ -592,11 +1152,48 @@ def generate_question(
 ):
 
     question = generate_adaptive_question(
-        difficulty_level=request.difficulty_level,
-        skill_level=request.skill_level,
-        age=request.age,
-        question_type=request.question_type,
-        child_name=request.child_name
+        difficulty_level=
+            request.difficulty_level,
+
+        skill_level=
+            request.skill_level,
+
+        age=
+            request.age,
+
+        question_type=
+            request.question_type,
+
+        child_name=
+            request.child_name,
+    )
+
+    return question
+
+
+# ============================================================
+# WORD BUILDER GEMINI ENDPOINT
+# ============================================================
+
+@app.post("/generate-word")
+def generate_word(
+    request: WordBuilderRequest
+):
+
+    question = (
+        generate_word_builder_question(
+            difficulty_level=
+                request.difficulty_level,
+
+            skill_level=
+                request.skill_level,
+
+            age=
+                request.age,
+
+            child_name=
+                request.child_name,
+        )
     )
 
     return question
@@ -613,5 +1210,10 @@ if __name__ == "__main__":
     uvicorn.run(
         app,
         host="0.0.0.0",
-        port=int(os.getenv("PORT", "8000"))
+        port=int(
+            os.getenv(
+                "PORT",
+                "8000"
+            )
+        )
     )
